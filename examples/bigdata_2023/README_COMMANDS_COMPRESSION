@@ -1,0 +1,30 @@
+Commands used for all the compression process and dataset and model creation.
+
+
+For Dataset creation:
+
+
+FOR AUTOML MODEL:
+
+python3 scripts/automl_model_search.py search --directory ./datasets/CICIDS2017/balanced_
+binary --cpus 4 --gpus 0 --attempts 1000 --epochs 1000 --patience 20 --time-lim
+it 40000 --metric accuracy
+View detailed results here: /home/carlos/Desktop/IBM/intellect/examples/bigdata_2023/datasets/CICIDS2017/balanced_binary/automl_search/models/NeuralNetTorch
+
+
+FOR COMPRESSION:
+
+python3 scripts/compression.py --model-directory ./datasets/CICIDS2017/balanced_binary/automl_search/models/NeuralNetTorch/a7a36c5f --output-directory ./datasets/CICIDS2017/balanced_binary/compressed_models --test-data ./datasets/CICIDS2017/balanced_binary/test.csv
+
+FOR COMPARING MODEL'S ARCHITECTURE:
+
+Original model:
+
+python3 scripts/show_architecture.py --model-directory ./datasets/CICIDS2017/balanced_binary/automl_search/models/NeuralNetTorch/a7a36c5f --model-name model.pkl 
+
+
+Quantized model:
+
+python3 scripts/show_architecture.py --model-directory ./datasets/CICIDS2017/balanced_binary/compressed_models/compressed_models --model-name quantized_dynamic_model.pth
+
+
