@@ -66,9 +66,18 @@ def create(
     logger.info(f'Dropping columns with only 1 value')
     df.dropna(thresh=2, axis=1, inplace=True)
 
+    logger.info("Stripping leading/trailing spaces from column names")
+    df.columns = df.columns.str.strip()
+
     logger.info(f"Renaming {type_column=} to 'Label'")
     df.rename({type_column: 'Label'}, axis=1, inplace=True)
     type_column = 'Label'
+
+    logger.info(f"Columns after renaming: {df.columns.tolist()}")
+
+    if type_column not in df.columns:
+        logger.error(f"Column {type_column} not found in dataframe columns: {df.columns.tolist()}")
+        raise KeyError(f"Column {type_column} not found in dataframe")
 
     if is_binary:
         logger.info(f'Binary problem, changing to 1 all columns different from {benign_label=}')
@@ -89,7 +98,7 @@ def create(
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.dropna(axis=0, how='any', inplace=True)
 
-    logger.info(f'Min-Max normalisation')
+    logger.info(f'Min-Max normalization')
     df = df.apply(
         lambda x: (x - x.min()) / (x.max() - x.min()))
 
