@@ -8,6 +8,19 @@ from torch.quantization import quantize_dynamic
 from sklearn.metrics import accuracy_score
 from autogluon.tabular import TabularPredictor
 
+class QuantizedModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super(QuantizedModelWrapper, self).__init__()
+        self.model = model
+        self.quant = torch.quantization.QuantStub()
+        self.dequant = torch.quantization.DeQuantStub()
+
+    def forward(self, x):
+        x = self.quant(x)
+        x = self.model(x)
+        x = self.dequant(x)
+        return x
+
 # Function to evaluate model
 def evaluate_model(predictor, X, y):
     y_pred = predictor.predict(X)
@@ -15,17 +28,32 @@ def evaluate_model(predictor, X, y):
     return accuracy
 
 # Function to evaluate quantized model
-def evaluate_quantized_model(model, X, y):
+def evaluate_quantized_model(model, dataloader, criterion, device):
     model.eval()
+    running_loss = 0.0
+    running_corrects = 0
+    total = 0
+    
     with torch.no_grad():
-        y_pred = model(X)
-    accuracy = accuracy_score(y, y_pred.argmax(dim=1).cpu().numpy())
-    return accuracy
+        for inputs, labels in dataloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            _, preds = torch.max(outputs, 1)
+            running_loss += loss.item() * inputs.size(0)
+            running_corrects += torch.sum(preds == labels.data)
+            total += labels.size(0)
+
+    epoch_loss = running_loss / total
+    epoch_acc = running_corrects.double() / total
+
+    print(f'Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+    return epoch_acc.item()
 
 # Dynamic quantization
 def quantize_model_dynamic(model):
     model_quantized = quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
-    return model_quantized
+    return QuantizedModelWrapper(model_quantized)
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -73,7 +101,7 @@ def main(args):
     print(f"Quantized Dynamic Model Size: {quantized_dynamic_model_size / 1024:.2f} KB")
 
     # Load the quantized model
-    quantized_model = quantize_dynamic(neural_net_model, {torch.nn.Linear}, dtype=torch.qint8)
+    quantized_model = QuantizedModelWrapper(neural_net_model)
     quantized_model.load_state_dict(torch.load(quantized_dynamic_model_path))
     quantized_model.to(device)
 
@@ -85,9 +113,12 @@ def main(args):
     # Prepare test data tensor
     X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).to(device)
     y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).to(device)
+    test_dataset = torch.utils.data.TensorDataset(X_test_tensor, y_test_tensor)
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=False)
 
     # Evaluate the quantized model
-    quantized_accuracy = evaluate_quantized_model(quantized_model, X_test_tensor, y_test_tensor)
+    criterion = torch.nn.CrossEntropyLoss()
+    quantized_accuracy = evaluate_quantized_model(quantized_model, test_dataloader, criterion, device)
     print(f"Quantized Model Accuracy: {quantized_accuracy:.4f}")
 
     # Plot results
