@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
-from torch.quantization import quantize_dynamic
+from torch.quantization import quantize_dynamic, QuantStub, DeQuantStub
 from sklearn.metrics import accuracy_score
 from autogluon.tabular import TabularPredictor
 
@@ -12,13 +12,28 @@ class QuantizedModelWrapper(torch.nn.Module):
     def __init__(self, model):
         super(QuantizedModelWrapper, self).__init__()
         self.model = model
-        self.quant = torch.quantization.QuantStub()
-        self.dequant = torch.quantization.DeQuantStub()
+        self.quant = QuantStub()
+        self.dequant = DeQuantStub()
 
     def forward(self, x):
         x = self.quant(x)
         x = self.model(x)
         x = self.dequant(x)
+        return x
+
+# Custom PyTorch model with detailed debugging
+class CustomModel(torch.nn.Module):
+    def __init__(self, model):
+        super(CustomModel, self).__init__()
+        self.model = model
+
+    def forward(self, x):
+        print(f"Initial input shape: {x.shape}")
+        for name, layer in self.model.named_children():
+            x = layer(x)
+            print(f"After layer {name}: {x.shape}")
+            if isinstance(layer, torch.nn.BatchNorm1d):
+                print(f"BatchNorm layer {name} expects {layer.running_mean.shape[0]} features.")
         return x
 
 # Function to evaluate model
@@ -28,30 +43,23 @@ def evaluate_model(predictor, X, y):
     return accuracy
 
 # Function to evaluate quantized model
-def evaluate_quantized_model(model, dataloader, criterion, device):
+def evaluate_quantized_model(model, X, y):
     model.eval()
-    running_loss = 0.0
-    running_corrects = 0
-    total = 0
-    
     with torch.no_grad():
-        for inputs, labels in dataloader:
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            _, preds = torch.max(outputs, 1)
-            running_loss += loss.item() * inputs.size(0)
-            running_corrects += torch.sum(preds == labels.data)
-            total += labels.size(0)
-
-    epoch_loss = running_loss / total
-    epoch_acc = running_corrects.double() / total
-
-    print(f'Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-    return epoch_acc.item()
+        X = X.unsqueeze(0)  # Add batch dimension
+        X = torch.quantize_per_tensor(X, scale=1.0, zero_point=0, dtype=torch.quint8)
+        y_pred = model(X.dequantize())
+        y_pred = y_pred.squeeze(0)  # Remove batch dimension
+    accuracy = accuracy_score(y.cpu().numpy(), y_pred.argmax(dim=1).cpu().numpy())
+    return accuracy
 
 # Dynamic quantization
 def quantize_model_dynamic(model):
+    if torch.backends.quantized.engine == 'none':
+        if os.name == 'posix':
+            torch.backends.quantized.engine = 'qnnpack'
+        else:
+            torch.backends.quantized.engine = 'fbgemm'
     model_quantized = quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
     return QuantizedModelWrapper(model_quantized)
 
@@ -60,13 +68,26 @@ def main(args):
 
     # Paths
     model_directory = args.model_directory
-    model_name = os.path.join(*model_directory.split('/')[-2:])
+    model_name = os.path.basename(model_directory)
     predictor_path = os.path.abspath(os.path.join(model_directory, "../../../"))
     compressed_model_path = os.path.abspath(os.path.join(args.output_directory, "compressed_models"))
     os.makedirs(compressed_model_path, exist_ok=True)
 
     # Load original model
     original_predictor = TabularPredictor.load(predictor_path)
+    model = original_predictor._trainer.load_model(original_predictor.get_model_best())
+    
+    # Print the model architecture details
+    print(f"Model architecture:\n{model.model}")
+    for name, layer in model.model.named_children():
+        print(f"Layer {name}: {layer}")
+        if isinstance(layer, torch.nn.BatchNorm1d):
+            print(f"BatchNorm layer {name} expects {layer.running_mean.shape[0]} features.")
+
+    # Extract PyTorch model from AutoGluon model
+    torch_model = CustomModel(model.model)
+    torch_model.to(device)
+    torch_model.eval()
 
     # Prepare data
     test_data_path = args.test_data
@@ -74,12 +95,25 @@ def main(args):
     X_test = test_data.drop(columns=['Label'])
     y_test = test_data['Label']
 
+    # Ensure the test data has the correct shape
+    original_columns = X_test.columns
+    if X_test.shape[1] < 67:
+        # Add zero features to match the expected input size of 67
+        padding = 67 - X_test.shape[1]
+        X_test = np.pad(X_test, ((0, 0), (0, padding)), 'constant', constant_values=0)
+        new_columns = list(original_columns) + [f'padding_{i}' for i in range(padding)]
+        X_test = pd.DataFrame(X_test, columns=new_columns, index=test_data.index)
+
+    # Convert to tensor
+    X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).to(device)
+    y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).to(device)
+
     # Evaluate original model
     original_accuracy = evaluate_model(original_predictor, X_test, y_test)
     print(f"Original Model Accuracy: {original_accuracy:.4f}")
 
     # Load the specific neural network model
-    neural_net_model = original_predictor._trainer.load_model(model_name).model.to(device)
+    neural_net_model = original_predictor._trainer.load_model(original_predictor.get_model_best()).model.to(device)
 
     # Display model characteristics if requested
     if args.architecture == 'yes':
@@ -90,7 +124,7 @@ def main(args):
     print(f"**********QUANTIZATION DYNAMIC**************")
     quantized_dynamic_model = quantize_model_dynamic(neural_net_model)
     quantized_dynamic_model_path = os.path.join(compressed_model_path, "quantized_dynamic_model.pth")
-    torch.save(quantized_dynamic_model.state_dict(), quantized_dynamic_model_path)
+    torch.save(quantized_dynamic_model, quantized_dynamic_model_path)  # Save the entire model
     print(f"Quantized Dynamic model saved at: {quantized_dynamic_model_path}\n")
 
     # Model sizes
@@ -101,24 +135,11 @@ def main(args):
     print(f"Quantized Dynamic Model Size: {quantized_dynamic_model_size / 1024:.2f} KB")
 
     # Load the quantized model
-    quantized_model = QuantizedModelWrapper(neural_net_model)
-    quantized_model.load_state_dict(torch.load(quantized_dynamic_model_path))
+    quantized_model = torch.load(quantized_dynamic_model_path)
     quantized_model.to(device)
 
-    # Display quantized model characteristics if requested
-    if args.architecture == 'yes':
-        print(f"Quantized Model architecture:\n{quantized_model}")
-        print(f"Quantized Model state dict keys:\n{quantized_model.state_dict().keys()}")
-
-    # Prepare test data tensor
-    X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).to(device)
-    y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).to(device)
-    test_dataset = torch.utils.data.TensorDataset(X_test_tensor, y_test_tensor)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=False)
-
     # Evaluate the quantized model
-    criterion = torch.nn.CrossEntropyLoss()
-    quantized_accuracy = evaluate_quantized_model(quantized_model, test_dataloader, criterion, device)
+    quantized_accuracy = evaluate_quantized_model(quantized_model, X_test_tensor, y_test_tensor)
     print(f"Quantized Model Accuracy: {quantized_accuracy:.4f}")
 
     # Plot results
