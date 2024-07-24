@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
+import torch.quantization as quant
 from torch.quantization import quantize_dynamic, QuantStub, DeQuantStub
+from torch.quantization._numeric_suite import compare_weights, compare_model_outputs, compare_model_stub
+from torch.nn import functional as F
 from sklearn.metrics import accuracy_score
 from autogluon.tabular import TabularPredictor
 
@@ -63,6 +66,10 @@ def quantize_model_dynamic(model):
     model_quantized = quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
     return QuantizedModelWrapper(model_quantized)
 
+# # Compute error for quantization comparison
+# def compute_error(float_tensor, quant_tensor):
+#     return torch.norm(float_tensor - quant_tensor).item()
+
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -108,6 +115,10 @@ def main(args):
     X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).to(device)
     y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).to(device)
 
+    # # Ensure input tensor has batch dimension
+    # if len(X_test_tensor.shape) == 1:
+    #     X_test_tensor = X_test_tensor.unsqueeze(0)
+
     # Evaluate original model
     original_accuracy = evaluate_model(original_predictor, X_test, y_test)
     print(f"Original Model Accuracy: {original_accuracy:.4f}")
@@ -141,6 +152,32 @@ def main(args):
     # Evaluate the quantized model
     quantized_accuracy = evaluate_quantized_model(quantized_model, X_test_tensor, y_test_tensor)
     print(f"Quantized Model Accuracy: {quantized_accuracy:.4f}")
+
+    # # Numeric Suite for quantization comparison
+    # wt_compare_dict = compare_weights(neural_net_model.state_dict(), quantized_model.state_dict())
+    # for key in wt_compare_dict:
+    #     if wt_compare_dict[key]['quantized'].is_quantized:
+    #         print(key, compute_error(wt_compare_dict[key]['float'], wt_compare_dict[key]['quantized'].dequantize()))
+    #     else:
+    #         print(key, compute_error(wt_compare_dict[key]['float'], wt_compare_dict[key]['quantized']))
+
+    # input_ = X_test_tensor.unsqueeze(0)  # Add batch dimension if not already present
+
+    # act_compare_dict = compare_model_outputs(neural_net_model, quantized_model, input_)
+    # for key in act_compare_dict:
+    #     print(key, compute_error(act_compare_dict[key]['float'], act_compare_dict[key]['quantized']))
+
+    # module_swap_list = [torch.nn.Linear]
+    # ob_dict = compare_model_stub(neural_net_model, quantized_model, module_swap_list, input_)
+    # print("Output of compare_model_stub:")
+    # for key in ob_dict:
+    #     print(f"Module: {key}")
+    #     print(f"Float output: {ob_dict[key].get('float')}")
+    #     print(f"Quantized output: {ob_dict[key].get('quantized')}")
+    #     if ob_dict[key].get('float') is None or ob_dict[key].get('quantized') is None:
+    #         print(f"Warning: No output for module {key}")
+    #     if 'float' in ob_dict[key] and 'quantized' in ob_dict[key]:
+    #         print(f"Error for {key}: {compute_error(ob_dict[key]['float'], ob_dict[key]['quantized'])}")
 
     # Plot results
     labels = ['Original', 'Quantized Dynamic']

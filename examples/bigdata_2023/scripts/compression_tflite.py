@@ -7,6 +7,8 @@ import torch.onnx
 from torch.utils.data import Dataset, DataLoader
 from sklearn.metrics import accuracy_score
 import onnx
+import matplotlib.pyplot as plt
+import onnxruntime as ort
 #from onnx_tf.backend import prepare
 import tensorflow as tf
 from autogluon.tabular import TabularPredictor
@@ -34,6 +36,25 @@ class CSVDataset(Dataset):
 def evaluate_model(predictor, X, y):
     y_pred = predictor.predict(X)
     accuracy = accuracy_score(y, y_pred)
+    return accuracy
+
+def evaluate_onnx_model(onnx_model_path, test_loader, device):
+    ort_session = ort.InferenceSession(onnx_model_path)
+    y_true = []
+    y_pred = []
+
+    for inputs, labels in test_loader:
+        inputs = inputs.to(device).numpy()
+        # Ensure the input sample has the correct shape
+        if inputs.shape[1] == 62:
+            inputs = np.pad(inputs, ((0, 0), (0, 5)), mode='constant', constant_values=0)
+        ort_inputs = {ort_session.get_inputs()[0].name: inputs}
+        ort_outs = ort_session.run(None, ort_inputs)
+        predictions = np.argmax(ort_outs[0], axis=1)
+        y_true.extend(labels.numpy())
+        y_pred.extend(predictions)
+
+    accuracy = accuracy_score(y_true, y_pred)
     return accuracy
 
 def convert_pytorch_to_onnx(model, input_sample, onnx_path):
@@ -97,6 +118,30 @@ def main(args):
 
     onnx_path = os.path.join(compressed_model_path, "model.onnx")
     convert_pytorch_to_onnx(torch_model, input_sample, onnx_path)
+
+    # Evaluate AutoGluon model
+    test_data = pd.read_csv(args.test_data)
+    X_test = test_data.drop(columns=['Label'])
+    y_test = test_data['Label']
+    autogluon_accuracy = evaluate_model(predictor, X_test, y_test)
+
+    # Evaluate ONNX model
+    onnx_accuracy = evaluate_onnx_model(onnx_path, test_loader, device)
+
+    # Print accuracies
+    print(f"AutoGluon Model Accuracy: {autogluon_accuracy}")
+    print(f"ONNX Model Accuracy: {onnx_accuracy}")
+
+    # Plot accuracies
+    models = ['AutoGluon', 'ONNX']
+    accuracies = [autogluon_accuracy, onnx_accuracy]
+    
+    plt.figure(figsize=(10, 5))
+    plt.bar(models, accuracies, color=['blue', 'orange'])
+    plt.xlabel('Model')
+    plt.ylabel('Accuracy')
+    plt.title('Model Accuracy Comparison')
+    plt.show()
 """
     # Convert ONNX model to TensorFlow
     onnx_model = onnx.load(onnx_path)
