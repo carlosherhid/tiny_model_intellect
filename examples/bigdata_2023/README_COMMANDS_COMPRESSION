@@ -28,3 +28,7 @@ Quantized model:
 python3 scripts/show_architecture.py --model-directory ./datasets/CICIDS2017/balanced_binary/compressed_models/compressed_models --model-name quantized_dynamic_model.pth
 
 
+autogluon to pytorch:
+jbsub8 -interactive -queue x86_1h -mem 16G -cores 8+1 python scripts/replicate_autogluon_to_pytorch.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search --data_dir ./datasets/CICIDS2017/balanced_binary
+
+jbsub8 -interactive -queue x86_1h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1000 --batch_size 256 --qat --normal
