@@ -1,35 +1,60 @@
 """
-This script replicates the architecture of an AutoGluon-generated model in PyTorch, optionally applying Quantization-Aware Training (QAT).
+This script replicates an AutoGluon model architecture in PyTorch and applies Quantization-Aware Training (QAT).
 It performs the following steps:
-1. Load the AutoGluon predictor and extract its architecture.
-2. Replicate the architecture in PyTorch.
-3. Train the PyTorch model with the option to apply QAT.
-4. Save the trained model to a specified directory.
-5. Evaluate and compare the accuracy of both the AutoGluon and PyTorch models.
+1. Loads the dataset and preprocesses it.
+2. Loads the best model from an AutoGluon predictor.
+3. Extracts the architecture of the AutoGluon model and replicates it in PyTorch.
+4. Trains the replicated PyTorch model.
+5. Applies QAT to the PyTorch model, trains it, and collects statistics.
+6. Converts the QAT-trained model to a quantized model.
+7. Evaluates the accuracy of both the normal and QAT PyTorch models on the test dataset.
+8. Saves the trained models and prints their sizes.
 
 Usage:
-python replicate_autogluon_to_pytorch_with_qat.py --predictor_path /path/to/your/predictor --data_dir ./datasets/CICIDS2017/balanced_binary/ --epochs 1000 --batch_size 256 --output_dir ./path/to/save/pytorch_model/ --qat --normal
+    python autogluon_to_pytorch_qat.py --predictor_path <path_to_autogluon_predictor> --data_dir <data_directory> --epochs <number_of_epochs> --batch_size <batch_size> --output_dir <output_directory> --qat --normal --experiment_number <experiment_number>
 
 Arguments:
---predictor_path: Path to the AutoGluon predictor file.
---data_dir: Directory where train.csv, test.csv, and validation.csv are located. 
---epochs: Number of maximum training epochs (default: 1000).
---batch_size: Batch size for training (default: 256).
---output_dir: Directory to save the PyTorch model.
---qat: Apply Quantization-Aware Training if specified.
---normal: Generate a normal (non-quantized) PyTorch model if specified.
+    --predictor_path: Path to the AutoGluon predictor file.
+    --data_dir: Directory where train.csv, test.csv, and validation.csv are located.
+    --epochs: Number of maximum training epochs (default is 1000).
+    --batch_size: Batch size for training (default is 256).
+    --output_dir: Directory to save the PyTorch model.
+    --qat: Flag to apply Quantization-Aware Training.
+    --normal: Flag to generate a normal (non-quantized) PyTorch model.
+    --experiment_number: Experiment number to include in the model name.
+
+Example:
+    python autogluon_to_pytorch_qat.py --predictor_path ./predictor.pkl --data_dir ./datasets --epochs 50 --batch_size 128 --output_dir ./output --qat --normal --experiment_number 1
 """
 
 import argparse
 import os
+import sys
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from autogluon.tabular import TabularPredictor, TabularDataset
+from autogluon.tabular import TabularPredictor
+from torch.utils.data import DataLoader, TensorDataset
 from torch.quantization import QuantStub, DeQuantStub, prepare_qat, convert
+from tqdm import tqdm
+
+class Logger(object):
+    def __init__(self, output_dir):
+        self.terminal = sys.stdout
+        self.log = open(os.path.join(output_dir, "execution_log.txt"), "w")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+        self.log.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
 
 def load_data(data_dir):
     train_data = pd.read_csv(os.path.join(data_dir, 'train.csv'))
@@ -49,8 +74,26 @@ def load_data(data_dir):
     
     return train_data, test_data, val_data
 
+def create_dataloaders(train_data, test_data, val_data, batch_size):
+    # Split features and labels
+    X_train, y_train = train_data.drop(columns=['Label']).values, train_data['Label'].values
+    X_test, y_test = test_data.drop(columns=['Label']).values, test_data['Label'].values
+    X_val, y_val = val_data.drop(columns=['Label']).values, val_data['Label'].values
+
+    # Convert to torch tensors
+    train_tensor = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.long))
+    test_tensor = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test, dtype=torch.long))
+    val_tensor = TensorDataset(torch.tensor(X_val, dtype=torch.float32), torch.tensor(y_val, dtype=torch.long))
+    
+    # Create DataLoader
+    train_loader = DataLoader(train_tensor, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_tensor, batch_size=batch_size, shuffle=False)
+    val_loader = DataLoader(val_tensor, batch_size=batch_size, shuffle=False)
+    
+    return train_loader, test_loader, val_loader
+
 def get_model_architecture(predictor, input_feature_size):
-    best_model_name = predictor.model_best
+    best_model_name = predictor._trainer.model_best
     best_model = predictor._trainer.load_model(best_model_name)
     
     architecture = []
@@ -70,7 +113,7 @@ class AutoReplicatedNN(nn.Module):
         current_input_size = input_feature_size
         for layer_type, layer_obj in architecture:
             if layer_type == nn.BatchNorm1d:
-                layers.append(nn.BatchNorm1d(current_input_size))
+                layers.append(nn.Identity())  # Replace BatchNorm1d with Identity
             elif layer_type == nn.Linear:
                 layers.append(nn.Linear(current_input_size, layer_obj.out_features))
                 current_input_size = layer_obj.out_features
@@ -78,9 +121,7 @@ class AutoReplicatedNN(nn.Module):
                 layers.append(nn.ReLU())
             elif layer_type == nn.Dropout:
                 layers.append(nn.Dropout(p=layer_obj.p))
-            elif layer_type == nn.Softmax:
-                layers.append(nn.Softmax(dim=layer_obj.dim))
-            else:
+            elif layer_type != nn.Softmax:  # Exclude Softmax
                 raise ValueError(f"Unhandled layer type: {layer_type}")
         self.main_block = nn.Sequential(*layers)
     
@@ -100,134 +141,159 @@ class QATWrapper(nn.Module):
         x = self.dequant(x)
         return x
 
-def train_pytorch_model(model, X_train_tensor, y_train_tensor, X_val_tensor, y_val_tensor, epochs, batch_size):
+def train_pytorch_model(model, train_loader, val_loader, epochs, device):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     for epoch in range(epochs):
-        permutation = torch.randperm(X_train_tensor.size()[0])
-        for i in range(0, X_train_tensor.size()[0], batch_size):
-            indices = permutation[i:i+batch_size]
-            batch_X, batch_y = X_train_tensor[indices], y_train_tensor[indices]
-            
-            # Forward pass
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
-            
-            # Backward pass and optimization
+        model.train()
+        running_loss = 0.0
+        for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs}', unit='batch'):
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+
             optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+
+            running_loss += loss.item()
+
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {running_loss/len(train_loader):.4f}")
         
         # Validate the model
-        model.eval()
-        with torch.no_grad():
-            val_outputs = model(X_val_tensor)
-            _, val_predicted = torch.max(val_outputs.data, 1)
-            val_accuracy = accuracy_score(y_val_tensor, val_predicted)
-        model.train()
-        
-        print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Validation Accuracy: {val_accuracy:.4f}')
-    
+        val_loss, val_accuracy = validate_pytorch_model(model, val_loader, device)
+        print(f'Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}')
+
     return model
 
-def evaluate_model(model, X_test_tensor, y_test_tensor):
+def validate_pytorch_model(model, val_loader, device):
     model.eval()
+    criterion = nn.CrossEntropyLoss()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+
     with torch.no_grad():
-        outputs = model(X_test_tensor)
-        _, predicted = torch.max(outputs.data, 1)
-        accuracy = accuracy_score(y_test_tensor, predicted)
+        for data in val_loader:
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            running_loss += loss.item()
+
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    val_loss = running_loss / len(val_loader)
+    val_accuracy = correct / total
+    return val_loss, val_accuracy
+
+def evaluate_model(model, test_loader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    softmax = nn.Softmax(dim=1)  # Initialize Softmax
+
+    with torch.no_grad():
+        for data in tqdm(test_loader, desc='Testing', unit='batch'):
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            outputs = model(inputs)
+            outputs = softmax(outputs)  # Apply Softmax
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    accuracy = correct / total
     return accuracy
 
-def save_model(model, output_dir, model_name):
-    os.makedirs(output_dir, exist_ok=True)
-    model_path = os.path.join(output_dir, f"{model_name}.pth")
+def print_size_of_model(model):
+    torch.save(model.state_dict(), "temp.p")
+    print('Size (KB):', os.path.getsize("temp.p")/1e3)
+    os.remove('temp.p')
+
+def save_model(model, output_dir, model_name, experiment_number):
+    model_path = os.path.join(output_dir, f"{model_name}_exp{experiment_number}.pth")
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Replicate AutoGluon model architecture in PyTorch with QAT")
-    parser.add_argument('--predictor_path', type=str, required=True, help="Path to the AutoGluon predictor file")
-    parser.add_argument('--data_dir', type=str, required=True, help="Directory where train.csv, test.csv, and validation.csv are located")
-    parser.add_argument('--epochs', type=int, default=1000, help="Number of maximum training epochs")
-    parser.add_argument('--batch_size', type=int, default=256, help="Batch size for training")
-    parser.add_argument('--output_dir', type=str, required=True, help="Directory to save the PyTorch model")
-    parser.add_argument('--qat', action='store_true', help="Apply Quantization-Aware Training")
-    parser.add_argument('--normal', action='store_true', help="Generate a normal (non-quantized) PyTorch model")
-    args = parser.parse_args()
-    
-    # Load data
-    train_data, test_data, val_data = load_data(args.data_dir)
-    
-    # Determine the input feature size
-    input_feature_size = train_data.drop(columns=['Label']).shape[1]
-    
-    # Convert to TabularDataset
-    train_data_tab = TabularDataset(train_data)
-    test_data_tab = TabularDataset(test_data)
-    val_data_tab = TabularDataset(val_data)
-    
-    # Load predictor
-    predictor = TabularPredictor.load(args.predictor_path)
-    
-    # Get model architecture
-    architecture, best_model, input_feature_size = get_model_architecture(predictor, input_feature_size)
-    
-    # Print AutoGluon model architecture
-    print("AutoGluon Model Architecture:")
-    print(best_model.model)
-    
-    # Prepare training and validation data
-    X_train = train_data.drop(columns=['Label']).values
-    y_train = train_data['Label'].values
-    X_val = val_data.drop(columns=['Label']).values
-    y_val = val_data['Label'].values
+    parser = argparse.ArgumentParser(description='Replicate AutoGluon model in PyTorch and apply QAT')
+    parser.add_argument('--predictor_path', type=str, required=True, help='Path to the AutoGluon predictor')
+    parser.add_argument('--data_dir', type=str, required=True, help='Directory containing the dataset CSV files')
+    parser.add_argument('--output_dir', type=str, required=True, help='Directory to save the output models')
+    parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs to train (default: 1000)')
+    parser.add_argument('--batch_size', type=int, default=256, help='Batch size for training (default: 256)')
+    parser.add_argument('--qat', action='store_true', help='Apply Quantization-Aware Training')
+    parser.add_argument('--normal', action='store_true', help='Train a normal (non-quantized) model')
+    parser.add_argument('--experiment_number', type=int, required=True, help='Experiment number to include in model name')
 
-    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-    y_train_tensor = torch.tensor(y_train, dtype=torch.long)
-    X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
-    y_val_tensor = torch.tensor(y_val, dtype=torch.long)
+    args = parser.parse_args()
+
+    # Setup logger
+    sys.stdout = Logger(args.output_dir)
+
+    # Load the data
+    train_data, test_data, val_data = load_data(args.data_dir)
+    train_loader, test_loader, val_loader = create_dataloaders(train_data, test_data, val_data, args.batch_size)
+
+    # Load the AutoGluon predictor
+    predictor = TabularPredictor.load(args.predictor_path)
+
+    # Get the model architecture from the AutoGluon predictor
+    architecture, best_model, input_feature_size = get_model_architecture(predictor, len(train_data.columns) - 1)
+
+    # Set the device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     if args.normal:
         # Replicate and train normal PyTorch model
-        normal_model = AutoReplicatedNN(architecture, input_feature_size)
+        normal_model = AutoReplicatedNN(architecture, input_feature_size).to(device)
         print("\nTraining Normal PyTorch Model:")
-        normal_model = train_pytorch_model(normal_model, X_train_tensor, y_train_tensor, X_val_tensor, y_val_tensor, args.epochs, args.batch_size)
-        save_model(normal_model, args.output_dir, "normal_pytorch_model")
+        normal_model = train_pytorch_model(normal_model, train_loader, val_loader, args.epochs, device)
+        save_model(normal_model, args.output_dir, "normal_pytorch_model", args.experiment_number)
+        normal_accuracy = evaluate_model(normal_model, test_loader, device)
+        print(f'Accuracy of the normal model on the test dataset: {normal_accuracy * 100:.2f}%')
+        print_size_of_model(normal_model)
     
     if args.qat:
         # Apply QAT and train QAT PyTorch model
-        qat_model = AutoReplicatedNN(architecture, input_feature_size)
-        qat_model = QATWrapper(qat_model)
+        qat_model = AutoReplicatedNN(architecture, input_feature_size).to(device)
+        
+        qat_model = QATWrapper(qat_model).to(device)
         qat_model.qconfig = torch.quantization.get_default_qat_qconfig('qnnpack')
         prepare_qat(qat_model, inplace=True)
-        print("\nTraining QAT PyTorch Model:")
-        qat_model = train_pytorch_model(qat_model, X_train_tensor, y_train_tensor, X_val_tensor, y_val_tensor, args.epochs, args.batch_size)
-        qat_model = convert(qat_model.eval())
-        save_model(qat_model, args.output_dir, "qat_pytorch_model")
-    
-    # Prepare test data
-    X_test = test_data.drop(columns=['Label']).values
-    y_test = test_data['Label'].values
 
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
-    
-    # Evaluate AutoGluon model
-    original_ag_model_accuracy = predictor.evaluate(test_data_tab)['accuracy']
-    print(f'Accuracy on the test set (Original AutoGluon Model): {original_ag_model_accuracy:.4f}')
-    
-    if args.normal:
-        # Evaluate normal PyTorch model
-        normal_model.eval()
-        normal_accuracy = evaluate_model(normal_model, X_test_tensor, y_test_tensor)
-        print(f'Accuracy on the test set (Normal PyTorch Model): {normal_accuracy:.4f}')
-    
-    if args.qat:
-        # Evaluate QAT PyTorch model
+        print("\nTraining QAT PyTorch Model:")
+        qat_model = train_pytorch_model(qat_model, train_loader, val_loader, args.epochs, device)
+        
+        print("\nCollecting statistics during training:")
+        print(qat_model)
+
         qat_model.eval()
-        qat_accuracy = evaluate_model(qat_model, X_test_tensor, y_test_tensor)
-        print(f'Accuracy on the test set (QAT PyTorch Model): {qat_accuracy:.4f}')
+        qat_model = qat_model.cpu()  # Move to CPU for quantization
+        qat_model = convert(qat_model)
+        save_model(qat_model, args.output_dir, "qat_pytorch_model", args.experiment_number)
+
+        qat_accuracy = evaluate_model(qat_model, test_loader, torch.device("cpu"))
+        print(f'Accuracy of the QAT model on the test dataset: {qat_accuracy * 100:.2f}%')
+        print_size_of_model(qat_model)
+
+        print("Weights after quantization:")
+        # Print weights from the first Linear layer
+        for layer in qat_model.model.main_block:
+            if isinstance(layer, nn.Linear):
+                print(torch.int_repr(layer.weight))
+                break
+
+    # Evaluate AutoGluon model
+    original_ag_model_accuracy = predictor.evaluate(test_data)['accuracy']
+    print(f'Accuracy on the test set (Original AutoGluon Model): {original_ag_model_accuracy:.4f}')
 
 if __name__ == "__main__":
     main()
