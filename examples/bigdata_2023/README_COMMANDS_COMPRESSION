@@ -37,3 +37,5 @@ jbsub8 -interactive -queue x86_1h -mem 16G -cores 8+1 python scripts/autogluon_t
 
 
 jbsub8  -queue x86_1h -interactive -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1 --batch_size 256 --qat --experiment_number 3
+
+jbsub8  -queue x86_24h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1000 --batch_size 256 --qat --experiment_number 5

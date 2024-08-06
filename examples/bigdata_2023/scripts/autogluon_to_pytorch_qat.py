@@ -26,7 +26,6 @@ Arguments:
 Example:
     python autogluon_to_pytorch_qat.py --predictor_path ./predictor.pkl --data_dir ./datasets --epochs 50 --batch_size 128 --output_dir ./output --qat --normal --experiment_number 1
 """
-
 import argparse
 import os
 import sys
@@ -43,9 +42,9 @@ from torch.quantization import QuantStub, DeQuantStub, prepare_qat, convert
 from tqdm import tqdm
 
 class Logger(object):
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, experiment_number):
         self.terminal = sys.stdout
-        self.log = open(os.path.join(output_dir, "execution_log.txt"), "w")
+        self.log = open(os.path.join(output_dir, f"execution_log_exp{experiment_number}.txt"), "w")
 
     def write(self, message):
         self.terminal.write(message)
@@ -145,6 +144,14 @@ def train_pytorch_model(model, train_loader, val_loader, epochs, device):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
+    # Learning rate scheduler
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.5)
+
+    # Introduce Early Stopping Mechanism
+    best_val_accuracy = 0
+    patience = 10
+    patience_counter = 0
+    
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -165,6 +172,19 @@ def train_pytorch_model(model, train_loader, val_loader, epochs, device):
         # Validate the model
         val_loss, val_accuracy = validate_pytorch_model(model, val_loader, device)
         print(f'Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}')
+
+        # Step the scheduler
+        scheduler.step(val_loss)
+
+        # Early stopping check
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print("Early stopping triggered")
+                break
 
     return model
 
@@ -236,7 +256,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logger
-    sys.stdout = Logger(args.output_dir)
+    sys.stdout = Logger(args.output_dir, args.experiment_number)
 
     # Load the data
     train_data, test_data, val_data = load_data(args.data_dir)
