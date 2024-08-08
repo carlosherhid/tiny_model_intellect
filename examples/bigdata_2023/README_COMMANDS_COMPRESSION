@@ -2,14 +2,13 @@ Commands used for all the compression process and dataset and model creation.
 
 
 For Dataset creation:
-
-
+jbsub8 -interactive -queue x86_1h -mem 16G -cores 8+1 .venv/bin/python3 scripts/dataset_creator.py --directory ./datasets/EDGE2022 --test-size 0.3 --finetune-size 0.5 --validation-size 0.2 --cpus 6 --composition balanced --problem-type binary
+jbsub8 -interactive -queue x86_1h -mem 100G -cores 8+1 python scripts/dataset_creator.py --directory ./datasets/ICS-D1 --test-size 0.3 --finetune-size 0.5 --validation-size 0.2 --cpus 6 --composition balanced --problem-type binary
+jbsub8 -interactive -queue x86_1h -mem 100G -cores 8+1 python scripts/dataset_creator.py --directory ./datasets/EDGE2022 --test-size 0.3 --finetune-size 0.5 --validation-size 0.2 --cpus 6 --composition balanced --problem-type binary
 FOR AUTOML MODEL:
 
-python3 scripts/automl_model_search.py search --directory ./datasets/CICIDS2017/balanced_
-binary --cpus 4 --gpus 0 --attempts 1000 --epochs 1000 --patience 20 --time-lim
-it 40000 --metric accuracy
-View detailed results here: /home/carlos/Desktop/IBM/intellect/examples/bigdata_2023/datasets/CICIDS2017/balanced_binary/automl_search/models/NeuralNetTorch
+python scripts/automl_model_search.py search --directory ./datasets/EDGE2022/balanced_binary --cpus 4 --gpus 0 --attempts 1000 --epochs 1000 --patience 20 --time-limit 40000 --metric accuracy
+View detailed results here: /home/carlos/Desktop/IBM/intellect/examples/bigdata_2023/datasets/EDGE2022/balanced_binary/automl_search/models/NeuralNetTorch
 
 
 FOR COMPRESSION:
