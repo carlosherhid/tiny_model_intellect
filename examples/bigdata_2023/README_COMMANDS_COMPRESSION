@@ -38,3 +38,14 @@ jbsub8 -interactive -queue x86_1h -mem 16G -cores 8+1 python scripts/autogluon_t
 jbsub8  -queue x86_1h -interactive -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1 --batch_size 256 --qat --experiment_number 3
 
 jbsub8  -queue x86_24h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1000 --batch_size 256 --qat --experiment_number 5
+
+Experiment 12:
+jbsub8  -queue x86_24h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 1000 --batch_size 256  --experiment_number 12 --normal --qat --disable_early_stopping --disable_lr_scheduler --scale_close_to_zero
+
+COMMAND TO CONVERT AUTOGLUON EDGE2022 TO PYTORCH AND COMPRESS IT
+jbsub8  -queue x86_7d -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/EDGE2022/balanced_binary/automl_search  --data_dir ./datasets/EDGE2022/balanced_binary --output_dir ./datasets/EDGE2022/balanced_binary/compressed_models --epochs 1000 --batch_size 256  --experiment_number 13 --normal --qat --disable_early_stopping --disable_lr_scheduler
+
+
+
+FEATURE RANKING
+jbsub8  -queue x86_1h -interactive -mem 16G -cores 8+1 -out ./datasets/CICIDS2017/logs/./datasets/CICIDS2017/balanced_binary/run-feature-ranking-best_model-custom_sbe-40000t-accuracy/2024-08-13-06:06:57.jbinfo python scripts/feature_ranking.py --directory ./datasets//balanced_binary/automl_search/models/best_model --algorithm custom_sbe --cpus 6 --time-limit 40000 --metric accuracy --mode recursive
