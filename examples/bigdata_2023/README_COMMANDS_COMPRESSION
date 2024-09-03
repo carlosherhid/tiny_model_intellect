@@ -55,51 +55,62 @@ jbsub8  -queue x86_24h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_q
 
 EXPERIMENT 18
 jbsub8  -queue x86_24h -mem 16G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 18 --normal --qat --disable_early_stopping --disable_lr_scheduler --scale_close_to_zero
+EXPERIMENTS FINAL
 
 Experiment 30
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 40 --normal --qat --disable_early_stopping --disable_lr_scheduler
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 1 --normal --qat --disable_early_stopping --disable_lr_scheduler
 
 Experiment 31
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 41 --normal --qat --disable_lr_scheduler 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 2 --normal --qat --disable_lr_scheduler 
 
 Experiment 32
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 42 --normal --qat --disable_early_stopping 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 3 --normal --qat --disable_early_stopping 
 
 Experiment 33
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 43 --normal --qat 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 4 --normal --qat 
 
 
 Experiment 33
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 44 --normal --qat --disable_early_stopping --modify_test
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 5 --normal --qat --disable_early_stopping --modify_test
 
 Experiment 34
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 45 --normal --qat --disable_early_stopping  --scale_close_to_zero
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 6 --normal --qat --disable_early_stopping  --scale_close_to_zero
 
 Experiment 35
 
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 46 --normal --qat --disable_early_stopping --scale_close_to_zero --prune_features --important_features_file ./datasets/CICIDS2017/balanced_binary/automl_search/feature_ranking_custom_sbe/important_features.txt 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 7 --normal --qat --disable_early_stopping --scale_close_to_zero --prune_features --important_features_file ./datasets/CICIDS2017/balanced_binary/automl_search/feature_ranking_custom_sbe/important_features.txt 
 
 Experiment 37
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 30 --batch_size 256  --experiment_number 47 --normal --qat --disable_early_stopping --scale_close_to_zero --prune_features --important_features_file ./datasets/CICIDS2017/balanced_binary/automl_search/feature_ranking_custom_sbe/important_features.txt 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 30 --batch_size 256  --experiment_number 8 --normal --qat --disable_early_stopping --scale_close_to_zero --prune_features --important_features_file ./datasets/CICIDS2017/balanced_binary/automl_search/feature_ranking_custom_sbe/important_features.txt 
 Experiment 38
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 48 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 9 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model
 
 jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_
 search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 50 --normal --qat --disab
 le_early_stopping  --scale_close_to_zero --prune_model
 Experiment 51: 
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 52 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model 
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 10 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model 
 Experiment 52:
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 52 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model --structured_pruning
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 11 --normal --qat --disable_early_stopping  --scale_close_to_zero --prune_model --structured_pruning
 
 Experiment 53:
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 53 --normal -
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 12 --normal -
 -qat --disable_early_stopping  --scale_close_to_zero --prune_model --fine_tune_post_pruning 
 
 Experiment 54:
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 54 --normal -
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 13 --normal -
 -qat --disable_early_stopping  --scale_close_to_zero --prune_model --fine_tune_post_pruning --structured_pruning
 
 Experiment 55:
-jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 55 --normal -
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 14 --normal -
 -qat --disable_early_stopping  --scale_close_to_zero --prune_model --fine_tune_post_pruning --structured_pruning --pruning_ratio 0.5
+
+Experiment 56 (With sparse, removing manually values wights of the model put to zero, pytorch pruning just puts the weights to zero without removing it):
+jbsub8  -queue x86_24h -mem 50G -cores 8+1 python scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 15 --normal -
+-qat --disable_early_stopping  --scale_close_to_zero --prune_model --fine_tune_post_pruning --structured_pruning --pruning_ratio 0.5
+
+Experiment 57(time)
+python3 scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 16 --normal --qat --disable_early_stopping --scale_close_to_zero --prune_features --important_features_file ./datasets/CICIDS2017/balanced_binary/automl_search/feature_ranking_custom_sbe/important_features.txt 
+
+Experimentt 58(time)
+ python3 scripts/autogluon_to_pytorch_qat.py --predictor_path ./datasets/CICIDS2017/balanced_binary/automl_search  --data_dir ./datasets/CICIDS2017/balanced_binary --output_dir ./datasets/CICIDS2017/balanced_binary/compressed_models --epochs 100 --batch_size 256  --experiment_number 17 --normal --qat --disable_early_stopping  --scale_close_to_zero
